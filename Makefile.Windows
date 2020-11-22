@@ -1,0 +1,49 @@
+##
+##	Makefile for file locker
+##
+
+
+##
+##	Variables
+##	---------
+##
+
+EXE	= lockRanger.exe
+
+# List of all of the object files in your project
+MYOBJS = \
+		lockRanger.obj
+
+CC		= cl
+
+# Flags for compiling
+CFLAGS	= 
+
+# Libs that need to be linked
+LDFLAGS	= 
+LDLIBS =
+
+
+##
+##	Build Targets
+##	-------------
+##
+
+# Default target - build the program
+$(EXE) exe : $(MYOBJS)
+	$(CC) $(CFLAGS) $(MYOBJS) /link /out:$(EXE) $(LDFLAGS) $(LDLIBS)
+	icacls $(EXE) /grant Everyone:RX
+
+lockRanger.E :
+	$(CC) $(CFLAGS) /E lockRanger.c > lockRanger.E
+
+##
+##	Cleanup Targets
+##	---------------
+##
+
+clean :
+	- del /f $(EXE)
+	- del /f $(MYOBJS)
+	- del /f *.pdb
+
