@@ -25,12 +25,35 @@ static void printHelpAndExit(char *progname, char *errormessage);
 static char * curtimeString();
 int sysMainLine(int argc, char *argv[]);
 int doLockAction(HANDLE lockFileHandle,char operation,DWORD offset,DWORD length);
-int wfileLockEx(int fd, struct flock* lockData, int typeCode, int offset, int length);
+int wfileLockEx(int fd, struct flock lockData, int typeCode, int offset, int length);
 
-int wfileLockEx(int fd, struct flock* lockData, int typeCode, int offset, int length) {
+int wfileLockEx(int fd, struct flock fl, int typeCode, int offset, int length) {
+  // F_SETLK    acquire a lock
+  // F_SETLKW   release a lock
+  // R_GETLK    test for the existence of a lock
 
-  puts("coconut");
+  // F_RDLCK    read lock / shared lock
+  // F_WRLCK    write lock / exclusive lock
+  // F_UNLCK    unlock the lock
 
+  // F_SETLKW   set lock
+  // F_SETLK    unlock
+
+  fl.l_pid = getpid();
+  fl.l_whence = SEEK_SET;
+  fl.l_len = length;
+  fl.l_start = offset;
+
+  if (typeCode == 2) {
+    fl.l_type = F_WRLCK; // X - write lock
+  } else {
+    fl.l_type = F_RDLCK; // S - read lock
+  }
+
+  if (fcntl(fd, F_SETLKW, &fl) == -1) {
+    perror("fcntl");
+    exit(1);
+  }
 
   return 0;
 }
@@ -134,7 +157,7 @@ int doLockAction(HANDLE lockFileHandle,char operation,DWORD offset,DWORD length)
       return -1;
     }
     #else
-    wfileLockEx(lockFileHandle, &lockData, typeCode, offset, length);
+    wfileLockEx(lockFileHandle, lockData, typeCode, offset, length);
     #endif
 
 
@@ -145,6 +168,19 @@ int doLockAction(HANDLE lockFileHandle,char operation,DWORD offset,DWORD length)
       fprintf(stderr, "Error: LockFile returned failure : %d\n", GetLastError());
       return -1;
     }
+    #else
+
+    lockData.l_pid = getpid();
+    lockData.l_whence = SEEK_SET;
+    lockData.l_len = length;
+    lockData.l_start = offset;
+    lockData.l_type = F_UNLCK;
+
+    if (fcntl(lockFileHandle, F_SETLK, &lockData) == -1) {
+      perror("fcntl: error unlocking");
+      exit(1);
+    }
+
     #endif
 
     puts("attempt to unlock the part of the file");
