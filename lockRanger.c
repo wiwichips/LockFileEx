@@ -14,31 +14,37 @@
 
 // Define the commands that we will handle, and the types specific to the current O/S
 # define VALID_COMMANDS  "XSU"
-  typedef HANDLE LockFileHandle;
-  typedef DWORD FileOffset;
+
+#ifdef OS_WINDOWS
+typedef HANDLE LockFileHandle;
+typedef DWORD FileOffset;
+#else 
+
+#endif
 
 // print command line option help
 static void
 printHelpAndExit(char *progname, char *errormessage)
 {
-    if (errormessage != NULL)
-        fprintf(stderr, "Error: %s\n\n", errormessage);
+	if (errormessage != NULL) {
+		fprintf(stderr, "Error: %s\n\n", errormessage);
+	}
 
-    fprintf(stderr, "%s <datafile> [ <commandfile> ]\n", progname);
-    fprintf(stderr, "    Commands come in the form:\n");
-    fprintf(stderr, "        OPN OFF LEN\n");
-    fprintf(stderr, "    where:\n");
-    fprintf(stderr, "        OPN (operation) is one of:\n");
-    fprintf(stderr, "           X : exclusive lock of region, waiting for availbility \n");
-    fprintf(stderr, "           S : shared lock of region, waiting for availbility \n");
+	fprintf(stderr, "%s <datafile> [ <commandfile> ]\n", progname);
+	fprintf(stderr, "    Commands come in the form:\n");
+	fprintf(stderr, "        OPN OFF LEN\n");
+	fprintf(stderr, "    where:\n");
+	fprintf(stderr, "        OPN (operation) is one of:\n");
+	fprintf(stderr, "           X : exclusive lock of region, waiting for availbility \n");
+	fprintf(stderr, "           S : shared lock of region, waiting for availbility \n");
 #ifndef  OS_WINDOWS
-    fprintf(stderr, "           T : test whether region is locked\n");
+	fprintf(stderr, "           T : test whether region is locked\n");
 #endif
-    fprintf(stderr, "           U : unlock region\n");
-    fprintf(stderr, "        OFF, and LEN are the offset and length in bytes\n");
-    fprintf(stderr, "    If <commandfile> is not given, stdin is read\n");
+	fprintf(stderr, "           U : unlock region\n");
+	fprintf(stderr, "        OFF, and LEN are the offset and length in bytes\n");
+	fprintf(stderr, "    If <commandfile> is not given, stdin is read\n");
 
-    exit (-1);
+	exit (-1);
 }
 
 /* wrap ctime(3) to get the current time in a string */
