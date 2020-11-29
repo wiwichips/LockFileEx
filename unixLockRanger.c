@@ -14,19 +14,26 @@
 #else
 # include <errno.h>
 # define GetLastError() errno
-# define HANDLE void*
+# define HANDLE int
 # define DWORD long int
 #endif
 
-// valid commands
 # define VALID_COMMANDS  "XSU"
-
 
 int lockDemo(char* filename);
 static void printHelpAndExit(char *progname, char *errormessage);
 static char * curtimeString();
 int sysMainLine(int argc, char *argv[]);
-int UdoLockAction(void* lockFileHandle,char operation,DWORD offset,DWORD length);
+int doLockAction(HANDLE lockFileHandle,char operation,DWORD offset,DWORD length);
+int wfileLockEx(int fd, struct flock* lockData, int typeCode, int offset, int length);
+
+int wfileLockEx(int fd, struct flock* lockData, int typeCode, int offset, int length) {
+
+  puts("coconut");
+
+
+  return 0;
+}
 
 int main(int argc, char *argv[]) {
 
@@ -69,15 +76,14 @@ static char * curtimeString() {
 }
 
 // Perform the work of doing the locking operation, whatever it is.
-int UdoLockAction(void* lockFileHandle,char operation,DWORD offset,DWORD length) {
+int doLockAction(HANDLE lockFileHandle,char operation,DWORD offset,DWORD length) {
   char *operationTag;
 #ifndef OS_WINDOWS
-  struct flock lockData;
-  int fd;
+  struct flock lockData = {F_WRLCK, SEEK_SET, 0, 0, 0};
 #else
   OVERLAPPED windowsOverlap;
 #endif
-  // int status, typeCode, opCode;
+  int typeCode;
 
   // Get a nice printable version of the lock operation
   operationTag = (operation == 'X' ? "Exclusive Lock":
@@ -99,20 +105,25 @@ int UdoLockAction(void* lockFileHandle,char operation,DWORD offset,DWORD length)
     windowsOverlap.OffsetHigh = 0;
   #endif
 
-
-
   // Print a message indicating that we are going into the lock request
   printf("PID %5d : requesting '%c' lock at %ld for %ld bytes at %s", getpid(), operation, offset, length, curtimeString());
 
   // If we want a lock, use LockFileEx() - otherwise give up the lock with UnlockFile()
-  #ifdef OS_WINDOWS
+  
   if (operation == 'X' || operation == 'S') {
     // shared locks are the default (no value) so only exclusive locks have a bit flag
-    if (operation == 'X')
+    if (operation == 'X') {
+      #ifdef OS_WINDOWS
       typeCode = LOCKFILE_EXCLUSIVE_LOCK;
-    else
+      #else
+      typeCode = 2;
+      #endif
+    }
+    else {
       typeCode = 0;
+    }
 
+    #ifdef OS_WINDOWS
     // Use the OVERLAP structure and our other values to request the lock
     if ( ! LockFileEx(lockFileHandle,
         typeCode,
@@ -122,20 +133,27 @@ int UdoLockAction(void* lockFileHandle,char operation,DWORD offset,DWORD length)
       fprintf(stderr, "Error: LockFile returned failure : %d\n", GetLastError());
       return -1;
     }
+    #else
+    wfileLockEx(lockFileHandle, &lockData, typeCode, offset, length);
+    #endif
+
 
   } else if (operation == 'U') {
-
+    #ifdef OS_WINDOWS
     // Release a lock on a portion of a file
     if ( ! UnlockFile(lockFileHandle, offset, 0, length, 0)) {
       fprintf(stderr, "Error: LockFile returned failure : %d\n", GetLastError());
       return -1;
     }
+    #endif
+
+    puts("attempt to unlock the part of the file");
+
 
   } else {
     fprintf(stderr, "Error: Unknown operation '%c'\n", operation);
     return -1;
-  }
-  #endif
+  }  
 
   printf("PID %5d : received   '%c' lock at %ld for %ld bytes at %s", getpid(), operation, offset, length, curtimeString());
 
@@ -178,10 +196,10 @@ int sysMainLine(int argc, char *argv[]) {
     FILE_ATTRIBUTE_NORMAL,  // dwFlagsAndAtributes
     NULL);  // hTemplateFile
   #else
-    lockFileHandle = (void*) fopen(argv[1], "ab+");
+    lockFileHandle = (int) open(argv[1], O_RDWR);
   #endif
 
-  if (lockFileHandle == NULL) {
+  if (!lockFileHandle) {
     fprintf(stderr, "Failed opening '%s' : %d\n", argv[1], GetLastError());
     exit (-1);
   }
@@ -220,11 +238,7 @@ int sysMainLine(int argc, char *argv[]) {
         printf("CMD %c %2ld %2ld\n",toupper(operation),offset, length);
 
         /** we ignore the results of the lock action here */
-        #ifdef OS_WINDOWS
         (void) doLockAction(lockFileHandle, toupper(operation), offset, length);
-        #else
-
-        #endif
       }
 
       /* prompt again */
@@ -241,6 +255,8 @@ int sysMainLine(int argc, char *argv[]) {
   /** clean up our files */
   #ifdef OS_WINDOWS
     CloseHandle(lockFileHandle);
+  #else
+  close(lockFileHandle);
   #endif
 
   if (commandFP != stdin) {
