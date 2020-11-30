@@ -73,7 +73,13 @@ int wfileLockEx(int fd, struct flock fl, int typeCode, int offset, int length) {
 
     } else {
       printf("No lock\n");
+      return 0;
     }
+
+    printf("lock owner:\t%d\n", fl.l_pid);
+    printf("lock offset:\t%ld\n", fl.l_start);
+    printf("lock length:\t%ld\n", fl.l_len);
+    printf("whence:\t\tSEEK_SET\n");
   }
 
   return 0;
