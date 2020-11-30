@@ -18,7 +18,11 @@
 # define DWORD long int
 #endif
 
+#ifdef OS_WINDOWS
 # define VALID_COMMANDS  "XSU"
+#else
+# define VALID_COMMANDS  "XSUT"
+#endif
 
 int lockDemo(char* filename);
 static void printHelpAndExit(char *progname, char *errormessage);
@@ -38,6 +42,8 @@ int wfileLockEx(int fd, struct flock fl, int typeCode, int offset, int length) {
 
   // F_SETLKW   set lock
   // F_SETLK    unlock
+  int ret = 0;
+  int thinger = F_SETLKW;
 
   fl.l_pid = getpid();
   fl.l_whence = SEEK_SET;
@@ -46,13 +52,28 @@ int wfileLockEx(int fd, struct flock fl, int typeCode, int offset, int length) {
 
   if (typeCode == 2) {
     fl.l_type = F_WRLCK; // X - write lock
+  } else if (typeCode == 3) {
+    fl.l_type = F_WRLCK;
+    thinger = F_GETLK; // test lock
   } else {
     fl.l_type = F_RDLCK; // S - read lock
   }
 
-  if (fcntl(fd, F_SETLKW, &fl) == -1) {
+  if ((ret = fcntl(fd, thinger, &fl)) == -1) {
     perror("fcntl");
     exit(1);
+  }
+
+  if (typeCode == 3) {
+    if (fl.l_type == F_WRLCK) {
+      printf("Process %d has a write lock already!\n", fl.l_pid);
+
+    } else if (fl.l_type == F_RDLCK) {
+      printf("Process %d has a read lock already!\n", fl.l_pid);
+
+    } else {
+      printf("No lock\n");
+    }
   }
 
   return 0;
@@ -111,7 +132,9 @@ int doLockAction(HANDLE lockFileHandle,char operation,DWORD offset,DWORD length)
   // Get a nice printable version of the lock operation
   operationTag = (operation == 'X' ? "Exclusive Lock":
                   operation == 'S' ? "Shared Lock" :
+#ifndef OS_WINDOWS
                   operation == 'T' ? "Test for lock" :
+#endif
                   operation == 'U' ? "Unlock" : "??? unknown command ???");
 
   printf("PID %5d performing operation %s\n", getpid(), operationTag);
@@ -186,7 +209,18 @@ int doLockAction(HANDLE lockFileHandle,char operation,DWORD offset,DWORD length)
     puts("attempt to unlock the part of the file");
 
 
-  } else {
+  } 
+  
+  #ifndef OS_WINDOWS
+
+  else if (operation == 'T') {
+    typeCode = 3; // use 3 fors testing 
+    wfileLockEx(lockFileHandle, lockData, typeCode, offset, length);
+  }
+
+  #endif
+
+  else {
     fprintf(stderr, "Error: Unknown operation '%c'\n", operation);
     return -1;
   }  
@@ -205,6 +239,7 @@ int sysMainLine(int argc, char *argv[]) {
   int nItemsRead, keepGoing = 1;
   long offset, length;
   char operation;
+  int temp;
 
 
   /** check that the arguments are correct */
@@ -257,7 +292,7 @@ int sysMainLine(int argc, char *argv[]) {
 
 	/** print first prompt */
 	if (isatty(0))
-			printf("CMD> ") >= 0 && fflush(stdout);
+			temp = printf("CMD> ") >= 0 && fflush(stdout);
 
 	// loop reading commands we use fgets() to ensure that we are reading whole lines
 	while (keepGoing && fgets(commandLine, BUFSIZ, commandFP) != NULL) {
@@ -279,7 +314,7 @@ int sysMainLine(int argc, char *argv[]) {
 
       /* prompt again */
       if (isatty(0)) {
-        printf("CMD> ") >= 0 && fflush(stdout);
+        temp = printf("CMD> ") >= 0 && fflush(stdout);
 			}
 
     } else {
@@ -297,7 +332,9 @@ int sysMainLine(int argc, char *argv[]) {
 
   if (commandFP != stdin) {
 		fclose(commandFP); 
-	}
+	} else if (temp) {
+    exit(0);
+  }
 	exit(0);
 }
 
