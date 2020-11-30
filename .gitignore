@@ -1,3 +1,7 @@
+# project specific
+lockRanger
+*.exe
+
 # Prerequisites
 *.d
 
