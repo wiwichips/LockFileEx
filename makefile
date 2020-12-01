@@ -1,5 +1,5 @@
 all: *c *h
-	gcc -Wall unixLockRanger.c -o lockRanger
+	gcc -Wall lockRanger.c -o lockRanger
 
 clean: lockRanger
 	rm -f lockRanger
