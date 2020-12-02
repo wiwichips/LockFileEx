@@ -60,8 +60,8 @@ int wfileLockEx(int fd, struct flock fl, int typeCode, int offset, int length) {
   }
 
   if ((ret = fcntl(fd, thinger, &fl)) == -1) {
-    perror("fcntl");
-    exit(1);
+    perror("fcntl error");
+    return 1;
   }
 
   if (typeCode == 3) {
